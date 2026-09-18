@@ -1,0 +1,15 @@
+# 编辑器 / 系统
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Node（本项目本身不需要 node_modules，只用于 tools/selftest.cjs）
+node_modules/
+npm-debug.log*
+
+# 本地导出的产物
+*.zip
+_site/
+panorama_[0-5].png

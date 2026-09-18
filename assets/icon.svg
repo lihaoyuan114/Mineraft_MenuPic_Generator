@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" shape-rendering="crispEdges">
+  <rect width="32" height="32" rx="5" fill="#1a1f24" stroke="#333c45"/>
+  <!-- 等距立方体：顶面 / 左面 / 右面 -->
+  <polygon points="16,4 28,10 16,16 4,10" fill="#8fd66a"/>
+  <polygon points="4,10 16,16 16,28 4,22" fill="#4e9c31"/>
+  <polygon points="16,16 28,10 28,22 16,28" fill="#3b7a26"/>
+  <!-- 面编号点 -->
+  <rect x="15" y="9" width="2" height="2" fill="#1a1f24"/>
+  <rect x="9" y="15" width="2" height="2" fill="#1a1f24" opacity=".55"/>
+  <rect x="21" y="15" width="2" height="2" fill="#1a1f24" opacity=".55"/>
+  <rect x="15" y="21" width="2" height="2" fill="#1a1f24" opacity=".55"/>
+</svg>
