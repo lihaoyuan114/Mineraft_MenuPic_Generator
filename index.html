@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MC 菜单全景图生成器 · MenuPic Generator</title>
+<meta name="description" content="用一张图生成 Minecraft 主菜单 360° 球面全景图（panorama_0 ~ panorama_5），支持等距柱状投影、拼合图切分、直接覆盖、复制平铺等多种模式，一键导出可直接使用的资源包 ZIP。">
+<link rel="icon" href="assets/icon.svg">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <img src="assets/icon.svg" alt="" width="30" height="30">
+    <div>
+      <h1>MC 菜单全景图生成器</h1>
+      <p class="sub">一张图 → <code>panorama_0</code>…<code>panorama_5</code> · 生成可直接使用的 Minecraft 资源包</p>
+    </div>
+  </div>
+  <nav class="topnav">
+    <a href="https://github.com/lihaoyuan114/Mineraft_MenuPic_Generator" target="_blank" rel="noopener">GitHub</a>
+    <a href="docs/panorama-format.md" target="_blank" rel="noopener">格式说明</a>
+    <a href="docs/repo-settings.md" target="_blank" rel="noopener">仓库设置</a>
+  </nav>
+</header>
+
+<main class="layout">
+
+  <!-- ==================== 左：控制面板 ==================== -->
+  <section class="column controls">
+
+    <!-- 1. 输入 -->
+    <div class="card">
+      <h2><span class="step">1</span>输入图片</h2>
+      <div id="drop" class="drop" tabindex="0" role="button" aria-label="选择或拖入图片">
+        <div class="drop-inner">
+          <div class="drop-icon">🖼</div>
+          <p><strong>点击选择</strong> / 拖拽到此 / 直接 <kbd>Ctrl</kbd>+<kbd>V</kbd> 粘贴</p>
+          <p class="muted">支持 PNG / JPG / WebP。等距柱状全景图建议 2:1</p>
+        </div>
+      </div>
+      <div class="row gap">
+        <button id="btn-sample" class="btn">🎨 生成示例全景图</button>
+        <button id="btn-clear" class="btn ghost">清除</button>
+      </div>
+      <p id="src-info" class="src-info muted">尚未载入图片</p>
+      <div id="src-wrap" class="src-wrap hidden">
+        <canvas id="src-preview"></canvas>
+        <canvas id="grid-overlay" class="overlay hidden"></canvas>
+      </div>
+    </div>
+
+    <!-- 2. 模式 -->
+    <div class="card">
+      <h2><span class="step">2</span>生成模式</h2>
+      <div class="modes" id="modes">
+        <label class="mode">
+          <input type="radio" name="mode" value="equirect" checked>
+          <div class="mode-body">
+            <b>球面全景投影</b><span class="badge">推荐</span>
+            <small>输入一张 2:1 等距柱状全景图（360° 全景照片 / 全景渲染图），按球面投影精确展开成 6 个立方体面。</small>
+          </div>
+        </label>
+        <label class="mode">
+          <input type="radio" name="mode" value="grid">
+          <div class="mode-body">
+            <b>拼合图拆分</b>
+            <small>输入一张已经拼好的 6 面展开图（3×2 / 十字 / 长条），按布局切成 6 面。</small>
+          </div>
+        </label>
+        <label class="mode">
+          <input type="radio" name="mode" value="stretch">
+          <div class="mode-body">
+            <b>直接覆盖</b>
+            <small>把整张图拉伸/裁切铺满每一个面。可选“每面递进 90° 旋转”，做出旋转隧道效果。</small>
+          </div>
+        </label>
+        <label class="mode">
+          <input type="radio" name="mode" value="tile">
+          <div class="mode-body">
+            <b>复制平铺</b>
+            <small>把图当成一块瓷砖重复平铺到每一面，可开启镜像拼接做出无缝墙纸/方块感。</small>
+          </div>
+        </label>
+        <label class="mode">
+          <input type="radio" name="mode" value="fisheye">
+          <div class="mode-body">
+            <b>鱼眼转全景</b><span class="badge warn">实验</span>
+            <small>输入圆形鱼眼（天顶）照片，先还原成球面再展开成 6 面。</small>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <!-- 3. 参数 -->
+    <div class="card">
+      <h2><span class="step">3</span>参数</h2>
+
+      <div class="field">
+        <label for="f-size">每面分辨率</label>
+        <select id="f-size">
+          <option value="512">512 × 512</option>
+          <option value="1024" selected>1024 × 1024（原版尺寸）</option>
+          <option value="2048">2048 × 2048</option>
+          <option value="4096">4096 × 4096（很慢）</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="f-sample">采样方式</label>
+        <select id="f-sample">
+          <option value="bilinear" selected>双线性（平滑）</option>
+          <option value="nearest">最近邻（像素风）</option>
+        </select>
+      </div>
+
+      <!-- equirect -->
+      <div class="group" data-for="equirect">
+        <div class="field">
+          <label for="f-yaw">水平朝向 <span class="val" id="v-yaw">0°</span></label>
+          <input type="range" id="f-yaw" min="0" max="359" step="1" value="0">
+          <small class="muted">旋转全景，决定图片中心对准哪个方向。默认 0° = 图片水平中心为“北”（panorama_0）。</small>
+        </div>
+        <div class="field">
+          <label for="f-pitch">俯仰偏移 <span class="val" id="v-pitch">0°</span></label>
+          <input type="range" id="f-pitch" min="-90" max="90" step="1" value="0">
+        </div>
+        <div class="row gap wrap">
+          <label class="check"><input type="checkbox" id="f-flipv"> 上下翻转</label>
+          <label class="check"><input type="checkbox" id="f-fliph"> 左右翻转</label>
+        </div>
+      </div>
+
+      <!-- grid -->
+      <div class="group hidden" data-for="grid">
+        <div class="field">
+          <label for="f-layout">拼合布局</label>
+          <select id="f-layout"></select>
+          <small class="muted">源图预览上会画出网格与面编号，先确认布局对得上再导出。</small>
+        </div>
+      </div>
+
+      <!-- stretch -->
+      <div class="group hidden" data-for="stretch">
+        <div class="field">
+          <label for="f-fit-stretch">填充方式</label>
+          <select id="f-fit-stretch">
+            <option value="stretch" selected>拉伸铺满（会变形）</option>
+            <option value="cover">裁切铺满（保持比例）</option>
+            <option value="contain">留黑边（保持比例）</option>
+          </select>
+        </div>
+        <label class="check"><input type="checkbox" id="f-rotstep"> 每个面递进旋转 90°</label>
+      </div>
+
+      <!-- tile -->
+      <div class="group hidden" data-for="tile">
+        <div class="field">
+          <label for="f-tiles">每面平铺 <span class="val" id="v-tiles">2 × 2</span></label>
+          <input type="range" id="f-tiles" min="1" max="8" step="1" value="2">
+        </div>
+        <label class="check"><input type="checkbox" id="f-mirror" checked> 镜像拼接（无缝）</label>
+        <label class="check"><input type="checkbox" id="f-trotstep"> 每个面递进旋转 90°</label>
+      </div>
+
+      <!-- fisheye -->
+      <div class="group hidden" data-for="fisheye">
+        <div class="field">
+          <label for="f-fov">鱼眼视场角 <span class="val" id="v-fov">180°</span></label>
+          <input type="range" id="f-fov" min="90" max="220" step="5" value="180">
+        </div>
+        <div class="field">
+          <label for="f-frot">鱼眼旋转 <span class="val" id="v-frot">0°</span></label>
+          <input type="range" id="f-frot" min="0" max="359" step="1" value="0">
+        </div>
+      </div>
+
+      <details class="adv">
+        <summary>高级：朝向修正（接缝不对时用）</summary>
+        <div class="row gap wrap">
+          <label class="check"><input type="checkbox" id="f-swapud"> 上下两面互换</label>
+          <label class="check"><input type="checkbox" id="f-reverse"> 环向反转（镜像修正）</label>
+        </div>
+        <div class="field">
+          <label for="f-ringrot">环上四个面整体旋转</label>
+          <select id="f-ringrot">
+            <option value="0">0°</option>
+            <option value="1">90°</option>
+            <option value="2">180°</option>
+            <option value="3">270°</option>
+          </select>
+        </div>
+      </details>
+
+      <details class="adv">
+        <summary>调色（可选）</summary>
+        <div class="field">
+          <label for="f-bright">亮度 <span class="val" id="v-bright">100%</span></label>
+          <input type="range" id="f-bright" min="40" max="180" step="1" value="100">
+        </div>
+        <div class="field">
+          <label for="f-contrast">对比度 <span class="val" id="v-contrast">100%</span></label>
+          <input type="range" id="f-contrast" min="40" max="180" step="1" value="100">
+        </div>
+        <div class="field">
+          <label for="f-sat">饱和度 <span class="val" id="v-sat">100%</span></label>
+          <input type="range" id="f-sat" min="0" max="220" step="1" value="100">
+        </div>
+      </details>
+    </div>
+
+    <!-- 4. 资源包 -->
+    <div class="card">
+      <h2><span class="step">4</span>资源包</h2>
+      <div class="field">
+        <label for="f-packname">包名</label>
+        <input type="text" id="f-packname" value="My Panorama" maxlength="48">
+      </div>
+      <div class="field">
+        <label for="f-mcver">目标版本（决定 pack_format）</label>
+        <select id="f-mcver"></select>
+      </div>
+      <label class="check"><input type="checkbox" id="f-range"> 声明兼容区间（supported_formats / min_format）</label>
+      <div class="field">
+        <label for="f-desc">描述</label>
+        <input type="text" id="f-desc" value="Generated by MenuPic Generator" maxlength="80">
+      </div>
+
+      <div class="export">
+        <button id="btn-zip" class="btn primary">⬇ 下载资源包 ZIP</button>
+        <div class="row gap">
+          <button id="btn-faces" class="btn">6 张 PNG</button>
+          <button id="btn-sheet" class="btn">3×2 拼合图</button>
+          <button id="btn-cross" class="btn">十字拼合图</button>
+        </div>
+      </div>
+      <p class="muted tiny">解压到 <code>.minecraft/resourcepacks/</code>，或在游戏内“资源包”里直接拖入 ZIP。</p>
+    </div>
+  </section>
+
+  <!-- ==================== 右：预览 ==================== -->
+  <section class="column viewer">
+
+    <div class="card sticky-card">
+      <h2>实时预览 <span class="hint">拖动画面环视 · 滚轮缩放视场</span></h2>
+      <div class="viewer-wrap">
+        <canvas id="view"></canvas>
+        <div class="viewer-hud" id="hud">朝向 北 0° · 视场 70°</div>
+      </div>
+      <div class="row gap wrap mt">
+        <label class="check"><input type="checkbox" id="v-spin" checked> 自动旋转</label>
+        <label class="check"><input type="checkbox" id="v-seams"> 显示面分界</label>
+        <label class="range-inline">视场 <input type="range" id="v-fov" min="30" max="120" step="1" value="70"><span class="val" id="v-fovval">70°</span></label>
+        <button id="v-reset" class="btn small ghost">重置视角</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>六个面 <span class="hint">点图下载 · 拖图覆盖 · 按 ⟳ 单独旋转</span></h2>
+      <div class="faces" id="faces"></div>
+    </div>
+
+    <div class="card">
+      <h2>接缝自检 <span class="hint">数值越小越无缝，参考值为面内相邻像素的平均差异</span></h2>
+      <button id="btn-seam" class="btn">🔍 检查接缝</button>
+      <div id="seam-out" class="seam-out muted">尚未检查。</div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>MIT License · 与 Mojang / Microsoft 无关</span>
+  <span id="gen-stat" class="muted"></span>
+</footer>
+
+<input type="file" id="file-input" accept="image/*" hidden>
+<div id="toast" class="toast"></div>
+
+<script src="js/cubemap.js"></script>
+<script src="js/zip.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
